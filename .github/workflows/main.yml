@@ -1,36 +1,32 @@
-name: Test All Stockfish Binaries
+name: Make Black Opening Book           # Workflow title in the Actions tab
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:                    # Manual trigger (“Run workflow”)
 
 jobs:
-  test-all-stockfish:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        binary:
-          - stockfish-ubuntu-x86-64-avx512
-          - stockfish-ubuntu-x86-64-bmi2
-          - stockfish-ubuntu-x86-64-sse41-popcnt
-          - stockfish-ubuntu-x86-64-vnni256
-          - stockfish-ubuntu-x86-64-vnni512
+  make-black-book:
+    runs-on: ubuntu-latest              # Free Ubuntu runner for each execution
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    # 1️⃣ Pull the repo so we have blacker.pgn
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Make Stockfish binary executable
-        run: chmod +x ./${{ matrix.binary }}
-
-      - name: Run Stockfish bench test
-        run: |
-          ./${{ matrix.binary }} bench 2>&1 | tee output.txt
-          if grep -q "Nodes searched" output.txt; then
-            echo "${{ matrix.binary }} works!"
-          else
-            echo "${{ matrix.binary }} failed to run."
-            exit 1
-          fi
+    # 2️⃣ Install the Polyglot utility
+    - name: Install Polyglot
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y polyglot
+    # 3️⃣ Build the opening book
+    - name: Build black.bin from blacker.pgn
+      run: |
+        # -pgn  → input PGN (loss-free Black games)
+        # -bin  → output Polyglot book
+        # -min-game 1 keeps every move that occurred at least once
+        polyglot make-book -pgn win.pgn -bin win.bin -min-game 1
+    # 4️⃣ Upload the resulting book so you can download it
+    - name: Upload black.bin
+      uses: actions/upload-artifact@v4
+      with:
+        name: win-book               # Artifact name shown in the UI
+        path: win.bin                # File to upload
